@@ -148,7 +148,7 @@ animation: callout 1.2s ease-out .6s 2;
 100% { transform: scale(1); }
 }
 
-        
+
 
 
 
@@ -351,7 +351,7 @@ animation: callout 1.2s ease-out .6s 2;
             align-items: center;
             justify-content: center;
         }
-        
+
 
 /* optional; not required when using gap, but harmless /
 .button-group > div {
@@ -660,7 +660,7 @@ flex-direction: column; /* stack vertically /
         let completed = 0;
 
         for (const fileObj of fileObjects) {
-            const dropboxPath = `Listings/${folderName}/${fileObj.filename}`;
+            const dropboxPath = `CHSIR Marketing/Listings/Listings 2026/${folderName}/${fileObj.filename}`;
 
             const uploadPromise = uploadWithRetry(
                 fileObj,
@@ -956,47 +956,81 @@ flex-direction: column; /* stack vertically /
 
     const NETLIFY_FUNCTION_URL =
         "https://getaddressinfofromjotform.netlify.app/.netlify/functions/dropbox-storage";
+    const NETLIFY_NEW_FUNCTION_URL =
+        "https://getaddressinfofromjotform.netlify.app/.netlify/functions/dropbox-new-storage";
 
     async function fetchLatestAddress() {
         try {
-            function getDeviceId() {
-                const STORAGE_KEY = 'device_unique_id';
+            function getBestFingerprintSync() {
+                try {
+                    // Canvas fingerprint
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = 300;
+                    canvas.height = 150;
 
-                // Check if ID already exists
-                let deviceId = localStorage.getItem(STORAGE_KEY);
+                    const gradient = ctx.createRadialGradient(75, 75, 0, 75, 75, 75);
+                    gradient.addColorStop(0, '#ff0000');
+                    gradient.addColorStop(0.5, 'rgba(0, 255, 0, 0.7)');
+                    gradient.addColorStop(1, '#0000ff');
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(0, 0, 150, 150);
 
-                if (!deviceId) {
-                    // Generate a new unique ID using device characteristics + random component
-                    const fingerprint = {
-                        userAgent: navigator.userAgent,
-                        language: navigator.language,
-                        hardwareConcurrency: navigator.hardwareConcurrency,
-                        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                        screen: `${screen.width}x${screen.height}`
-                    };
+                    ['Arial', 'Georgia', 'Times', 'Courier', 'Verdana'].forEach((font, i) => {
+                        ctx.font = `${12 + i * 2}px ${font}`;
+                        ctx.fillStyle = `hsl(${i * 72}, 70%, 50%)`;
+                        ctx.fillText(['Hello 🌟', 'αβγδε', 'Test123!', '中文', '🚀🎨'][i] || 'Test', 10, 25 + i * 18);
+                    });
 
-                    // Create hash from fingerprint data
-                    const fingerprintString = JSON.stringify(fingerprint);
-                    deviceId = 'dev_' + fingerprintString
+                    ctx.globalCompositeOperation = 'multiply';
+                    ctx.fillStyle = 'rgba(255, 0, 255, 0.6)';
+                    ctx.beginPath();
+                    ctx.arc(200, 75, 30, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    const canvasData = canvas.toDataURL();
+
+                    // Combine STABLE components only
+                    const components = [
+                        navigator.userAgent,
+                        `${screen.width}x${screen.height}x${screen.colorDepth}x${window.devicePixelRatio || 1}`,
+                        new Date().getTimezoneOffset() + '|' + Intl.DateTimeFormat().resolvedOptions().timeZone,
+                        (navigator.languages || [navigator.language]).join(','),
+                        navigator.hardwareConcurrency || 'unknown',
+                        canvasData
+                        // Removed Date.now() and Math.random()
+                    ];
+
+                    // Simple hash for synchronous operation
+                    let hash = 0;
+                    const str = components.join('###');
+                    for (let i = 0; i < str.length; i++) {
+                        const char = str.charCodeAt(i);
+                        hash = ((hash << 5) - hash) + char;
+                        hash = hash & hash; // Convert to 32-bit integer
+                    }
+
+                    // Return only the hash (no timestamp)
+                    return Math.abs(hash).toString(16);
+                } catch (error) {
+                    // For errors, you might want to return a consistent error ID
+                    return 'error-fallback-id';
                 }
-
-                return deviceId;
             }
-
-            const deviceId = getDeviceId();
-            console.log('Your device ID:', deviceId);
-            const response = await fetch(NETLIFY_FUNCTION_URL);
+            const deviceId = getBestFingerprintSync();
+            console.log(deviceId, 'deviceId v1 upload1')
+            // const response = await fetch(`${NETLIFY_FUNCTION_URL}?deviceId=${deviceId}`);
+            const response = await fetch(`${NETLIFY_NEW_FUNCTION_URL}?deviceId=${deviceId}`);
             if (response.ok) {
                 const data = await response.json();
-                console.log("🟢 [Proxy result ) = ", "success", data);
-                address = data.address;
+                if (data.success) {
+                    console.log("🟢 [Proxy result ) = ", "success", data);
+                    address = data.data.address;
+                    addressNumber = data.data.unitNumber || "";
 
-                // Fix #1: Always use the current submission's unit number, even if empty
-                // This prevents using the previous submission's unit number
-                addressNumber = data.unitNumber || "";
-
-                console.log(`📍 Address: "${address}", Unit: "${addressNumber}"`);
-                return data; // <-- return the fetched data
+                    console.log(`📍 Address: "${address}", Unit: "${addressNumber}"`);
+                    return data.data; // <-- return the fetched data
+                }
             } else {
                 console.log("🟢 [Proxy result ) = ", "error", response);
                 return null; // <-- return null on error
@@ -1284,6 +1318,68 @@ dropZone.addEventListener("drop", (e) => {
                 );
                 localStorage.removeItem('addressNumber')
                 localStorage.removeItem('unitNumber')
+                function getBestFingerprintSync() {
+                    try {
+                        // Canvas fingerprint
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        canvas.width = 300;
+                        canvas.height = 150;
+
+                        const gradient = ctx.createRadialGradient(75, 75, 0, 75, 75, 75);
+                        gradient.addColorStop(0, '#ff0000');
+                        gradient.addColorStop(0.5, 'rgba(0, 255, 0, 0.7)');
+                        gradient.addColorStop(1, '#0000ff');
+                        ctx.fillStyle = gradient;
+                        ctx.fillRect(0, 0, 150, 150);
+
+                        ['Arial', 'Georgia', 'Times', 'Courier', 'Verdana'].forEach((font, i) => {
+                            ctx.font = `${12 + i * 2}px ${font}`;
+                            ctx.fillStyle = `hsl(${i * 72}, 70%, 50%)`;
+                            ctx.fillText(['Hello 🌟', 'αβγδε', 'Test123!', '中文', '🚀🎨'][i] || 'Test', 10, 25 + i * 18);
+                        });
+
+                        ctx.globalCompositeOperation = 'multiply';
+                        ctx.fillStyle = 'rgba(255, 0, 255, 0.6)';
+                        ctx.beginPath();
+                        ctx.arc(200, 75, 30, 0, Math.PI * 2);
+                        ctx.fill();
+
+                        const canvasData = canvas.toDataURL();
+
+                        // Combine STABLE components only
+                        const components = [
+                            navigator.userAgent,
+                            `${screen.width}x${screen.height}x${screen.colorDepth}x${window.devicePixelRatio || 1}`,
+                            new Date().getTimezoneOffset() + '|' + Intl.DateTimeFormat().resolvedOptions().timeZone,
+                            (navigator.languages || [navigator.language]).join(','),
+                            navigator.hardwareConcurrency || 'unknown',
+                            canvasData
+                            // Removed Date.now() and Math.random()
+                        ];
+
+                        // Simple hash for synchronous operation
+                        let hash = 0;
+                        const str = components.join('###');
+                        for (let i = 0; i < str.length; i++) {
+                            const char = str.charCodeAt(i);
+                            hash = ((hash << 5) - hash) + char;
+                            hash = hash & hash; // Convert to 32-bit integer
+                        }
+
+                        // Return only the hash (no timestamp)
+                        return Math.abs(hash).toString(16);
+                    } catch (error) {
+                        // For errors, you might want to return a consistent error ID
+                        return 'error-fallback-id';
+                    }
+                }
+                const deviceId = getBestFingerprintSync();
+                console.log(deviceId, 'deviceId v1 upload1')
+                await fetch(`${NETLIFY_NEW_FUNCTION_URL}`, {
+                    method: 'DELETE',
+                    body: {deviceId: deviceId}
+                });
                 if (failed.length > 0) {
                     const failedFiles = failed.map((f) => f.filename).join(", ");
                     const errorMessages = failed
